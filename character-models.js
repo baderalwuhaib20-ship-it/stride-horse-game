@@ -1,0 +1,76 @@
+/* Rounded anatomical meshes and articulated equestrian animation. */
+(() => {
+'use strict';
+const TAU=Math.PI*2,cache=new Map(),colors=new Map();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),mix=(a,b,t)=>a+(b-a)*t,fract=v=>v-Math.floor(v);
+// Foot order: left fore, right fore, left hind, right hind. Right lead.
+const gaitProfiles={
+1:{name:'Walk',touch:[.25,.75,0,.5],duty:[.72,.72,.72,.72],hz:1.05,lift:.12},
+2:{name:'Trot',touch:[0,.5,.5,0],duty:[.43,.43,.43,.43],hz:1.52,lift:.28},
+3:{name:'Canter',touch:[.24,.50,0,.24],duty:[.32,.27,.30,.32],hz:1.72,lift:.36},
+4:{name:'Gallop',touch:[.37,.50,0,.13],duty:[.22,.22,.21,.21],hz:2.05,lift:.47}
+};
+window.strideCadence=p=>{const gait=clamp(p.gait||2,1,4),profile=gaitProfiles[gait],nominal=[0,2.2,4.5,7.6,10.5][gait];return p.speed<.15?0:profile.hz*(.68+.32*clamp(p.speed/nominal,0,1.3));};
+window.strideGaitPose=p=>{
+const gait=clamp(p.gait||2,1,4),profile=gaitProfiles[gait],phase=p.phase||0,cycle=fract(phase/TAU),moving=p.speed>.15,amount=clamp(p.speed/2.5,0,1),hz=window.strideCadence(p)||profile.hz;
+const legs=profile.touch.map((touch,i)=>{const t=fract(cycle-touch),duty=profile.duty[i],stance=t<duty;
+const span=clamp(p.speed/hz*duty,.15,1.55),half=span/2,u=stance?t/duty:(t-duty)/(1-duty),ease=u*u*(3-2*u);
+return {stance:moving?stance:true,z:moving?(stance?mix(half,-half,u):mix(-half,half,ease)):0,lift:moving&&!stance?Math.sin(Math.PI*u)*profile.lift*amount:0,progress:t};});
+const suspension=moving&&legs.every(l=>!l.stance),bob=!moving?0:gait===1?.012*Math.sin(phase*2):gait===2?.045+.04*Math.cos(phase*2+.35):gait===3?.065+.065*Math.sin(phase-3.95):.08+.08*Math.sin(phase-3.6);
+const pitch=!moving?0:gait<=2?.012*Math.sin(phase):gait===3?.065*Math.cos(phase-.3):.105*Math.cos(phase+.4);
+const posting=moving&&gait===2?(.5+.5*Math.sin(phase-.3))*.16:0,lean=moving?(gait===4?.38:gait===3?.10:0):0;
+return {name:profile.name,legs,bob:bob*amount,pitch:pitch*amount,suspension,posting,lean,headNod:moving?(gait===3?.045:gait===4?.07:.012)*Math.sin(phase-.6):0};
+};
+// Two-bone sagittal IK keeps stance hooves on the arena while knees/hocks flex.
+function jointBetween(a,b,l1,l2,bend){let dy=b[1]-a[1],dz=b[2]-a[2],distance=Math.hypot(dy,dz)||.001,d=clamp(distance,.04,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),across=Math.sqrt(Math.max(0,l1*l1-along*along));return[a[0],a[1]+dy/distance*along-dz/distance*across*bend,a[2]+dz/distance*along+dy/distance*across*bend];}
+function tint(hex,f){let key=hex+Math.round(f*35);if(colors.has(key))return colors.get(key);const n=parseInt(hex.slice(1),16),c=`rgb(${Math.min(255,Math.round((n>>16)*f))},${Math.min(255,Math.round((n>>8&255)*f))},${Math.min(255,Math.round((n&255)*f))})`;colors.set(key,c);return c;}
+function sphere(seg,rings){let key=seg+':'+rings;if(cache.has(key))return cache.get(key);const polys=[],pt=(i,j)=>{let t=Math.PI*i/rings,a=TAU*j/seg;return[Math.sin(t)*Math.cos(a),Math.cos(t),Math.sin(t)*Math.sin(a)];};for(let i=0;i<rings;i++)for(let j=0;j<seg;j++)polys.push({v:[pt(i,j),pt(i+1,j),pt(i+1,j+1),pt(i,j+1)],n:pt(i+.5,j+.5)});cache.set(key,polys);return polys;}
+window.createEquestrianModel=function(p,coat,jacket,hero,faces,camera){
+const co=Math.cos(p.a),si=Math.sin(p.a),moving=p.speed>.15,jumping=p.jumpT>=0,jt=jumping?Math.min(1,p.jumpT/(p.jumpProfile?.duration||1.03)):0,phase=p.phase||0,gait=p.gait||2;
+const motion=window.strideGaitPose(p);if(p.movementScale){motion.bob*=p.movementScale;motion.pitch*=p.movementScale;motion.legs.forEach(l=>{l.z*=p.movementScale;l.lift*=p.movementScale;});}const bob=jumping?0:motion.bob+(!moving?Math.sin((p.idleTime||0)*1.8)*.006:0),pitch=jumping?Math.sin(jt*TAU)*.16*(p.jumpProfile?.pitch||1):motion.pitch,cp=Math.cos(pitch),sp=Math.sin(pitch);
+const normalToWorld=n=>{let x=n[0],y=n[1]*cp+n[2]*sp,z=n[2]*cp-n[1]*sp;if(p.riderOnly){const r=p.fallRoll||0,xx=x*Math.cos(r)+y*Math.sin(r);y=-x*Math.sin(r)+y*Math.cos(r);x=xx;}return[x*co+z*si,y,-x*si+z*co];};
+let humanGeometry=false;const scale=p.size||1;const transform=v=>{if(p.riderOnly){const r=p.fallRoll||0,dy=v[1]-2.2,x=v[0]*Math.cos(r)+dy*Math.sin(r),y=-v[0]*Math.sin(r)+dy*Math.cos(r)+(p.fallHeight||.22),z=v[2]+.2;return[p.x+x*co+z*si,y,p.z-x*si+z*co];}v=humanGeometry?[v[0],v[1]+2.05*(scale-1),v[2]*scale]:v.map(x=>x*scale);let yy=v[1]-1.45,zz=v[2],nod=(jumping?0:motion.headNod+(!moving?Math.sin((p.idleTime||0)*.8)*.012:0))*clamp((v[1]-1.5)/.6,0,1)*clamp((v[2]-.5)/.5,0,1),y=yy*cp+zz*sp+1.45+bob+(p.y||0)+nod,z=zz*cp-yy*sp;return[p.x+v[0]*co+z*si,y,p.z-v[0]*si+z*co];},emit=(v,c,normals,materialColor)=>faces.push({v:v.map(transform),c,character:true,normals,materialColor});
+function ell(center,scale,color,rot=0,detail=1){const close=hero&&camera&&Math.hypot(camera.x-p.x,camera.z-p.z)<8,seg=hero?(detail?(close?24:16):8):8,rings=hero?(detail?(close?12:8):4):4,c=Math.cos(rot),s=Math.sin(rot),wc=transform(center);for(const poly of sphere(seg,rings)){const n=poly.n;
+if(camera){const nx=n[0]/scale[0],ny=n[1]/scale[1]*c-n[2]/scale[2]*s,nz=n[1]/scale[1]*s+n[2]/scale[2]*c,yy=ny*cp+nz*sp,zz=nz*cp-ny*sp,wx=nx*co+zz*si,wz=-nx*si+zz*co;if(wx*(camera.x-wc[0])+yy*(camera.y-wc[1])+wz*(camera.z-wc[2])<=0)continue;}
+const v=poly.v.map(a=>{let x=a[0]*scale[0],y=a[1]*scale[1],z=a[2]*scale[2];return[center[0]+x,center[1]+y*c-z*s,center[2]+y*s+z*c];});emit(v,tint(color,.73+.22*Math.max(0,n[1]*.72-n[0]*.45-n[2]*.35)+.11*Math.max(0,n[2])),window.strideGpu?poly.v.map(a=>normalToWorld([a[0]/scale[0],a[1]/scale[1]*c-a[2]/scale[2]*s,a[1]/scale[1]*s+a[2]/scale[2]*c])):undefined,color);}}
+function tube(a,b,r1,r2,color,seg=hero?10:6){const d=b.map((x,i)=>x-a[i]),len=Math.hypot(...d)||1,dir=d.map(x=>x/len),ref=Math.abs(dir[1])>.9?[1,0,0]:[0,1,0],u=[dir[1]*ref[2]-dir[2]*ref[1],dir[2]*ref[0]-dir[0]*ref[2],dir[0]*ref[1]-dir[1]*ref[0]],ul=Math.hypot(...u);for(let i=0;i<3;i++)u[i]/=ul;const v=[dir[1]*u[2]-dir[2]*u[1],dir[2]*u[0]-dir[0]*u[2],dir[0]*u[1]-dir[1]*u[0]],pt=(origin,r,t)=>origin.map((x,i)=>x+r*(u[i]*Math.cos(t)+v[i]*Math.sin(t)));for(let i=0;i<seg;i++){let t=i*TAU/seg,t2=(i+1)*TAU/seg;emit([pt(a,r1,t),pt(b,r2,t),pt(b,r2,t2),pt(a,r1,t2)],tint(color,.76+.2*Math.max(0,Math.sin(t))),window.strideGpu?[t,t,t2,t2].map(a=>normalToWorld(u.map((x,j)=>x*Math.cos(a)+v[j]*Math.sin(a)))):undefined,color);}}
+const darkCoat=f=>{const n=parseInt(coat.slice(1),16);return '#'+[n>>16&255,n>>8&255,n&255].map(v=>Math.round(v*f).toString(16).padStart(2,'0')).join('');};
+function barrel(){const sections=[[-1.29,1.44,.16,.28],[-1.10,1.46,.35,.43],[-.82,1.45,.43,.48],[-.42,1.43,.43,.46],[0,1.44,.39,.43],[.35,1.48,.34,.43],[.68,1.49,.28,.39],[.85,1.51,.14,.25]],seg=hero?24:12;const point=(sec,a)=>[Math.cos(a)*sec[2],sec[1]+Math.sin(a)*sec[3],sec[0]],normal=(sec,a)=>normalToWorld([Math.cos(a)/sec[2],Math.sin(a)/sec[3],0]);for(let j=0;j<sections.length-1;j++)for(let i=0;i<seg;i++){const a=i*TAU/seg,b=(i+1)*TAU/seg,A=sections[j],B=sections[j+1];emit([point(A,a),point(B,a),point(B,b),point(A,b)],tint(coat,.72+.32*Math.max(0,Math.sin((a+b)/2))),window.strideGpu?[normal(A,a),normal(B,a),normal(B,b),normal(A,b)]:undefined,coat);}}
+function hair(points,width,color){for(let i=0;i<points.length-1;i++){const a=points[i],b=points[i+1],w=width*(1-i/points.length);emit([[a[0]-w,a[1],a[2]],[a[0]+w,a[1],a[2]],[b[0]+w*.65,b[1],b[2]],[b[0]-w*.65,b[1],b[2]]],color,window.strideGpu?[[1,.1,0],[1,.1,0],[1,.1,0],[1,.1,0]].map(normalToWorld):undefined,color);}}
+function limb(a,b,r1,r2,color){tube(a,b,r1,r2,color);ell(a,[r1,r1,r1],color,0,0);ell(b,[r2,r2,r2],color,0,0);}
+if(!p.riderOnly){
+// Muscular barrel, haunches, shoulders, arched neck and elongated muzzle.
+barrel();ell([0,1.51,-.9],[.39,.40,.38],coat);for(const side of [-1,1]){ell([side*.245,1.48,.51],[.16,.38,.32],coat,-.18);ell([side*.25,1.46,-.89],[.17,.38,.31],coat,.22);}ell([0,1.31,.57],[.30,.34,.30],coat);
+tube([0,1.52,.55],[0,2.20,1.02],.29,.16,coat,hero?16:8);ell([0,1.88,.78],[.24,.49,.28],coat,.49);
+ell([0,2.18,1.12],[.19,.25,.30],coat,-.35);ell([0,2.06,1.43],[.16,.16,.32],coat,.27);ell([0,1.98,1.66],[.155,.13,.18],'#615147');ell([0,1.91,1.68],[.13,.045,.13],'#403b34',0,0);
+for(const side of [-1,1]){ell([side*.12,2.48,1.04],[.045,.13,.06],coat,side*.18);ell([side*.122,2.50,1.083],[.025,.078,.021],'#a57b70',side*.18,0);ell([side*.183,2.23,1.21],[.033,.047,.044],'#31271f',0,0);ell([side*.203,2.24,1.22],[.011,.010,.012],'#d9dfc9',0,0);ell([side*.143,2.02,1.73],[.022,.040,.040],'#332c27',.3,0);}
+for(const side of [-1,1]){ell([side*.178,2.245,1.205],[.028,.067,.067],coat,0,0);ell([side*.147,2.005,1.745],[.018,.031,.038],'#211e1b',.4,0);}if(p.marking!==0)ell([0,2.205,1.39],[p.marking===2?.075:.03,p.marking===3?.05:.135,.012],'#e6ddcb',.25,0);
+for(const s of [-1,1]){tube([s*.183,2.31,1.12],[s*.178,2.08,1.58],.012,.012,'#3e3025',5);tube([s*.17,2.04,1.58],[s*.17,1.95,1.60],.013,.013,'#3e3025',5);}tube([-.17,2.095,1.60],[.17,2.095,1.60],.013,.013,'#3e3025',6);for(const side of [-1,1]){for(let i=0;i<10;i++){const a=i*TAU/10,b=(i+1)*TAU/10;tube([side*.185,2.03+Math.sin(a)*.03,1.58+Math.cos(a)*.03],[side*.185,2.03+Math.sin(b)*.03,1.58+Math.cos(b)*.03],.005,.005,'#a4a59d',4);}tube([side*.15,2.35,1.04],[side*.18,2.30,1.20],.014,.014,'#3e3025',5);}
+for(let i=0;i<(hero?24:12);i++){const t=i/(hero?23:11),y=1.72+t*.63,z=.49+t*.54,sway=Math.sin(phase*.7-i*.6)*.018*(moving?1:.3),side=i%4===0?1:-1;hair([[0,y,z],[side*.13,y-.06,z-.07],[side*(.24+sway),y-.24,z-.11],[side*(.27+sway),y-.43-(1-t)*.08,z-.17]],hero?.023:.04,i%3?'#171b19':'#2d3029');}for(let i=0;i<8;i++)hair([[(i-3.5)*.018,2.39,1.07],[(i-3.5)*.023,2.31,1.27],[(i-3.5)*.019,2.16,1.35]],.016,i%2?'#20241f':'#33372e');
+// Gait-specific footfalls, bending knees and hocks, folded jumping legs.
+for(let i=0;i<4;i++){const front=i<2,side=i%2?1:-1,x=side*(front?.275:.30),rootZ=front?.61:-.85,leg=motion.legs[i],groundY=.09+leg.lift-bob,groundZ=rootZ+leg.z;
+let hip=[x,front?1.42:1.38,rootZ],hoof=[x,(groundY-1.45)*cp-groundZ*sp+1.45,groundZ*cp+(groundY-1.45)*sp],fetlock=[x,hoof[1]+.15,hoof[2]-.03],knee=jointBetween(hip,fetlock,front?.62:.60,front?.66:.67,front?-1:1);
+if(!jumping){const amount=clamp(p.speed/2.5,0,1),rest=[x,front?.79:.85,rootZ+(front?.02:-.16)];knee=knee.map((v,j)=>mix(rest[j],v,amount));}
+if(jumping){const tuck=Math.sin(jt*Math.PI)*(p.jumpProfile?.tuck||1);if(front){knee=[x,1.03+tuck*.24,rootZ+.20];fetlock=[x,.5+tuck*.74,rootZ-.20*tuck];hoof=[x,.36+tuck*.86,rootZ-.30*tuck];}else{knee=[x,.85,rootZ-.24];fetlock=[x,.20+tuck*.55,rootZ-.20-tuck*.15];hoof=[x,.09+tuck*.56,rootZ-.15-tuck*.21];}}
+limb(hip,knee,front?.105:.145,.065,coat);ell([knee[0],knee[1]-.015,knee[2]],[.065,.085,.08],coat,0,0);limb(knee,fetlock,.058,.035,darkCoat(.66));limb(fetlock,hoof,.043,.049,darkCoat(.48));ell(hoof,[.08,.08,.115],'#343330',-.14,0);
+if((i+(p.marking||0))%3===0)tube([x,hoof[1]+.08,hoof[2]],[x,hoof[1]+.20,hoof[2]],.044,.045,'#d7d2bf',8);}
+tube([0,1.62,-1.23],[0,1.30,-1.47],.08,.045,'#262921',8);for(let i=0;i<(hero?26:12);i++){const a=i*2.399,offset=Math.sin(a)*.085,sway=Math.sin(phase*.55-i*.15)*.09*(moving?1:.25),length=1.20+(i%5)*.027;hair([[offset,1.58,-1.27],[offset*1.3+sway*.3,1.28,-1.51],[offset*1.6+sway, .77,-1.62],[offset*1.2+sway*1.3,1.58-length,-1.70+(i%4)*.035]],hero?.018:.035,i%3?'#191e19':'#32352a');}
+if(p.tacked!==false){// Saddle, pad and girth.
+const pad=hero?'#d5d9b1':'#658493';ell([0,1.89,-.16],[.44,.075,.54],pad);ell([0,1.985,-.19],[.27,.065,.36],'#39291f');ell([0,2.04,-.48],[.285,.095,.075],'#563c28');ell([0,2.02,.12],[.25,.07,.09],'#4a3325');for(const side of [-1,1]){ell([side*.335,1.72,-.18],[.028,.30,.37],pad,.08);ell([side*.371,1.77,-.14],[.025,.265,.275],'#60432f',-.13);ell([side*.389,1.87,.05],[.028,.16,.09],'#493023',-.25);tube([side*.4,1.67,-.06],[side*.39,1.09,-.06],.033,.033,'#483a2d',6);for(let i=0;i<5;i++)tube([side*.369,1.48+i*.08,-.48],[side*.369,1.48+i*.08,.25],.004,.004,'#b1b797',4);tube([side*.4,1.95,-.20],[side*.45,1.20,-.20],.013,.013,'#4d3627',6);for(const [a,b]of [[[side*.45,1.22,-.20],[side*.45,1.07,-.30]],[[side*.45,1.07,-.30],[side*.45,1.07,-.02]],[[side*.45,1.07,-.02],[side*.45,1.22,-.20]]])tube(a,b,.013,.013,'#b9bbae',6);ell([side*.40,1.59,-.05],[.008,.044,.033],'#b9bbae',0,0);}tube([-.39,1.11,-.06],[0,.98,-.06],.033,.033,'#483a2d',6);tube([0,.98,-.06],[.39,1.11,-.06],.033,.033,'#483a2d',6);
+}
+}
+if(!p.riderFallen){
+humanGeometry=true;
+// Articulated human, posting trot and forward jumping seat.
+const tuck=jumping?Math.sin(jt*Math.PI)*(p.jumpProfile?.fold||1):0,posting=jumping?0:motion.posting,lean=jumping?0:motion.lean,seat=[0,2.14+posting+tuck*.09+(gait===4&&moving?.07:0),-.20],neck=[0,2.72+posting-tuck*.11-lean*.30,-.12+tuck*.55+lean],shoulder=[0,2.57+posting-tuck*.06-lean*.18,-.16+tuck*.47+lean*.8];
+ell(seat,[.255,.16,.21],'#ddd8c8');limb([0,seat[1]+.06,seat[2]],shoulder,.21,.245,jacket);ell(shoulder,[.245,.145,.175],jacket,-tuck*.4);for(const side of [-1,1]){tube([side*.06,shoulder[1]+.06,shoulder[2]+.16],[side*.10,shoulder[1]-.19,shoulder[2]+.19],.011,.006,'#d3d1be',5);tube([side*.15,shoulder[1]-.18,shoulder[2]+.145],[side*.07,shoulder[1]-.18,shoulder[2]+.176],.006,.006,'#182f28',4);}for(let i=0;i<3;i++)ell([0,shoulder[1]-.17-i*.07,shoulder[2]+.2],[.009,.009,.008],'#a5a38e',0,0);tube(shoulder,neck,.082,.072,'#bda08a',8);
+ell([0,neck[1]+.14,neck[2]+.02],[.135,.18,.135],'#c4a18c');ell([0,neck[1]+.21,neck[2]],[.16,.14,.165],'#25302e');ell([0,neck[1]+.13,neck[2]+.14],[.17,.028,.093],'#25302e',0,0);ell([0,neck[1]+.12,neck[2]+.153],[.025,.037,.033],'#c4a18c',0,0);ell([0,neck[1]+.06,neck[2]+.143],[.030,.007,.008],'#8f6855',0,0);for(const side of [-1,1]){ell([side*.131,neck[1]+.12,neck[2]],[.023,.043,.024],'#b9957d',0,0);tube([side*.126,neck[1]+.20,neck[2]],[side*.10,neck[1]-.01,neck[2]+.07],.009,.009,'#28322e',5);ell([side*.055,neck[1]+.286,neck[2]+.035],[.015,.004,.057],'#53605a',0,0);}
+for(const s of [-1,1]){ell([s*.067,neck[1]+.15,neck[2]+.14],[.015,.011,.009],'#3b332e',0,0);const hip=[s*.20,seat[1]-.03,seat[2]],knee=p.onFoot?[s*.12,1.55,-.2+Math.sin(phase+s)*.15]:[s*.41,1.61+posting*.4,-.02+tuck*.10],ankle=p.onFoot?[s*.12,1.04,-.2+Math.sin(phase+s)*.25]:[s*.44,1.15,-.28];limb(hip,knee,.10,.08,'#ddd8c8');limb(knee,ankle,.079,.068,'#29322e');ell(p.onFoot?[s*.12,1.04,-.1+Math.sin(phase+s)*.25]:[s*.44,1.10,-.18],[.083,.065,.18],'#29322e',0,0);
+const upper=[s*.25,shoulder[1]-.04,shoulder[2]],elbow=[s*.33,shoulder[1]-.29,shoulder[2]+.17],hand=p.cheering?[s*.22,2.96+Math.sin(phase)*.12,.12]:p.onFoot?[s*.27,1.99,-.1]:[s*.16,2.22+tuck*.04,.58+tuck*.28];limb(upper,elbow,.074,.059,jacket);limb(elbow,hand,.058,.043,jacket);ell(hand,[.049,.047,.06],'#403b33',0,0);
+if(!p.onFoot){const bit=[s*.175,2.01,1.57],mid=[s*.19,2.00,.98];tube(hand,mid,.007,.007,'#514334',5);tube(mid,bit,.007,.007,'#514334',5);
+const x=s*.46;tube([x,1.29,-.17],[x,1.04,-.31],.012,.012,'#b9bbae',5);tube([x,1.04,-.31],[x,1.04,.02],.012,.012,'#b9bbae',5);tube([x,1.04,.02],[x,1.29,-.17],.012,.012,'#b9bbae',5);}}
+}
+if(p.riderOnly)return;
+let shadow=[];for(let i=0;i<16;i++)shadow.push([p.x+Math.cos(i*TAU/16)*.7*co+Math.sin(i*TAU/16)*1.5*si,.025,p.z-Math.cos(i*TAU/16)*.7*si+Math.sin(i*TAU/16)*1.5*co]);faces.push({v:shadow,c:'#475b3950',shadow:true});
+};
+})();
