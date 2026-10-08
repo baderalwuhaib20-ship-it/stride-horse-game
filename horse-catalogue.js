@@ -42,11 +42,11 @@ window.strideBreedHorse=(mare,stallion,index,random=Math.random)=>{
 const mareCm=strideJumpProfile(mare).maxCm,stallionCm=strideJumpProfile(stallion).maxCm;
 // Either low-quality parent triggers exactly one independent 1% roll per birth.
 const isLowQuality=h=>strideJumpProfile(h).maxCm<=80||['speed','stamina','temperament'].some(k=>Number.isFinite(h[k])&&h[k]<50);
-const rareUpgrade=(isLowQuality(mare)||isLowQuality(stallion))&&random()<.01;
-const average=(mareCm+stallionCm)/2,bonus=3+Math.floor(random()*16),maxJumpCm=rareUpgrade?100+Math.floor(random()*21):Math.max(50,Math.round(average+bonus));
-const h={id:'bred-'+Date.now()+'-'+index,name:'Willow '+index,breed:'Sport Horse',age:0,coat:random()<.5?mare.coat:stallion.coat,sex:random()<.5?'Mare':'Stallion',parents:mare.name+' × '+stallion.name,parentIds:[mare.id,stallion.id],maxJumpCm,generation:1+Math.max(mare.generation||0,stallion.generation||0),origin:'bred',trained:false,rareUpgrade,size:Math.round(((mare.size||1)+(stallion.size||1))/2*100)/100};
+const bothLowQuality=isLowQuality(mare)&&isLowQuality(stallion),rareChance=bothLowQuality?.15:.01,rareUpgrade=(isLowQuality(mare)||isLowQuality(stallion))&&random()<rareChance;
+const average=(mareCm+stallionCm)/2,bonus=3+Math.floor(random()*16),maxJumpCm=rareUpgrade?(bothLowQuality?Math.max(100,Math.max(mareCm,stallionCm)+10+Math.floor(random()*16)):100+Math.floor(random()*21)):Math.max(50,Math.round(average+bonus));
+const h={id:'bred-'+Date.now()+'-'+index,name:'Willow '+index,breed:'Sport Horse',age:0,coat:random()<.5?mare.coat:stallion.coat,sex:random()<.5?'Mare':'Stallion',parents:mare.name+' × '+stallion.name,parentIds:[mare.id,stallion.id],maxJumpCm,generation:1+Math.max(mare.generation||0,stallion.generation||0),origin:'bred',trained:false,rareUpgrade,rareChance,size:Math.round(((mare.size||1)+(stallion.size||1))/2*100)/100};
 for(const k of ['speed','stamina','temperament'])h[k]=Math.max(1,Math.round((mare[k]+stallion[k])/2+random()*12-3));
-if(rareUpgrade)for(const k of ['speed','stamina','temperament'])h[k]=Math.max(70,h[k]);
+if(rareUpgrade)for(const k of ['speed','stamina','temperament'])h[k]=Math.max(70,h[k],bothLowQuality?Math.max(mare[k],stallion[k])+5:0);
 h.jump=Math.round(40+maxJumpCm*.35);return h;
 };
 })();
