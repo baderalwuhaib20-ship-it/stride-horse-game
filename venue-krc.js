@@ -45,6 +45,9 @@ for(const b of buildings){for(let x=b.x-b.w/2+3;x<b.x+b.w/2;x+=6){for(const dx o
 // Tournament stadium: tiered stands, grandstand roof and entry avenue.
 ground(170,12,112,119,'#cabd9e',-.01);flat(outline(arenas[9]),'#bfa77d',.06);ground(121,12,20,10,'#d9cfb6',.01);
 for(const side of [-1,1]){for(let row=0;row<4;row++){box(170+side*(42+row*1.8),.6+row*.65,12,2,.8+row*1.3,78,'#d2c9b8');for(let seat=0;seat<22;seat++){const x=170+side*(42+row*1.8),z=-23+seat*3.3,y=1+row*1.3;box(x,y+.34,z,.44,.68,.34,['#536d83','#a16952','#d0bd79','#536f56'][(seat+row)%4]);box(x,y+.82,z,.28,.30,.28,'#c4a18c');box(x-side*.15,y-.10,z,.36,.45,.34,'#535b54');}}box(170+side*47,7.2,12,12,.3,84,'#ac9580');for(const z of [-27,12,51])box(170+side*51,3.6,z,.25,7.2,.25,'#9a9180');}box(170,3.3,-38,23,2.6,.3,'#315f4f');
+// Palm gardens and planters outside the competition rails, clear of riding lines.
+for(const x of [128,145,170,195,212])for(const z of [-43,67]){planter(x,z);if(x!==170)palm(x,z,5.4);}
+for(const z of [-20,0,24,44])for(const x of [115,225]){ground(x,z,5,8,'#819164',.02);planter(x,z);palm(x,z,4.8);}
 // Long covered walkway east of arenas 1 and 4.
 for(const z of [-42,34]){box(88,3.2,z,7,.3,29,'#ece8dd');for(let i=-1;i<=1;i++)box(88,1.6,z+i*12,.16,3.2,.16,'#ded3be');}
 // Landscaped reception garden and octagonal shaded pavilion.
