@@ -40,12 +40,13 @@ window.strideSkyHorse=()=>({id:'tripod',name:'Tripod',breed:'Fantasy Sky Horse',
 window.strideStarter=()=>({id:'juniper',name:'Juniper',breed:'Dutch Warmblood',age:7,coat:'#89553d',speed:70,jump:61,maxJumpCm:60,stamina:85,temperament:90,sex:'Mare',price:0,generation:0,origin:'starter'});
 window.strideBreedHorse=(mare,stallion,index,random=Math.random)=>{
 const mareCm=strideJumpProfile(mare).maxCm,stallionCm=strideJumpProfile(stallion).maxCm;
-// Either low-quality parent triggers exactly one independent 1% roll per birth.
+// Low-quality parent breakthrough: both 15%, one 1%.
 const isLowQuality=h=>strideJumpProfile(h).maxCm<=80||['speed','stamina','temperament'].some(k=>Number.isFinite(h[k])&&h[k]<50);
 const bothLowQuality=isLowQuality(mare)&&isLowQuality(stallion),rareChance=bothLowQuality?.15:.01,rareUpgrade=(isLowQuality(mare)||isLowQuality(stallion))&&random()<rareChance;
 const average=(mareCm+stallionCm)/2,bonus=3+Math.floor(random()*16),maxJumpCm=rareUpgrade?(bothLowQuality?Math.max(100,Math.max(mareCm,stallionCm)+10+Math.floor(random()*16)):100+Math.floor(random()*21)):Math.max(50,Math.round(average+bonus));
 const h={id:'bred-'+Date.now()+'-'+index,name:'Willow '+index,breed:'Sport Horse',age:0,coat:random()<.5?mare.coat:stallion.coat,sex:random()<.5?'Mare':'Stallion',parents:mare.name+' × '+stallion.name,parentIds:[mare.id,stallion.id],maxJumpCm,generation:1+Math.max(mare.generation||0,stallion.generation||0),origin:'bred',trained:false,rareUpgrade,rareChance,size:Math.round(((mare.size||1)+(stallion.size||1))/2*100)/100};
 for(const k of ['speed','stamina','temperament'])h[k]=Math.max(1,Math.round((mare[k]+stallion[k])/2+random()*12-3));
+h.speed=Math.max(1,Math.round((mare.speed+stallion.speed)/2+random()*6));
 if(rareUpgrade)for(const k of ['speed','stamina','temperament'])h[k]=Math.max(70,h[k],bothLowQuality?Math.max(mare[k],stallion[k])+5:0);
 h.jump=Math.round(40+maxJumpCm*.35);return h;
 };
