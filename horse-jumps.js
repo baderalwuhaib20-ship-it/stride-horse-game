@@ -16,13 +16,13 @@ const jump=stat(h,'jump',75),speed=stat(h,'speed',75),temperament=stat(h,'temper
 const maxCm=h.noJump?0:h.id==='juniper'?60:Math.max(40,Number.isFinite(h.maxJumpCm)?h.maxJumpCm:style.maxCm||Math.round(50+jump*.85)),maxFenceHeight=maxCm/100;
 return {...style,label:h.noJump?'Flatwork only · no jumping':style.label,maxCm,maxFenceHeight,height:Math.min(maxFenceHeight+.32,Math.max(1.05+jump*.010+style.height,maxFenceHeight+.18)),duration:.73+jump*.003+style.air,reach:style.reach+(speed-78)*.0012,cueDelay:clamp(.025+(100-temperament)*.002+style.cue,.025,.22),staminaCost:clamp(8-stat(h,'stamina',80)*.035+(style.height>0?1:0),4,9),window:.10+Math.min(temperament,200)*.001};
 };
-window.strideJumpAttempt=(h,speed,energy)=>{
+window.strideJumpAttempt=(h,speed,energy,rail)=>{
 const p=window.strideJumpProfile(h),freshness=.68+.32*clamp(energy/100,0,1),approach=.72+.28*clamp((speed-2.6)/4.4,0,1);
-return {...p,height:p.height*freshness*approach,takeoffSpeed:speed,duration:p.duration*(.94+.06*clamp(energy/100,0,1))};
+return {...p,height:Math.min(p.height*freshness*approach,Number.isFinite(rail)&&rail>0?rail+.28:Infinity),takeoffSpeed:speed,duration:p.duration*(.94+.06*clamp(energy/100,0,1))};
 };
 window.strideJumpHeight=(attempt,t)=>Math.pow(Math.max(0,Math.sin(clamp(t/attempt.duration,0,1)*Math.PI)),attempt.shape)*attempt.height;
 window.strideTakeoffHint=(h,speed,energy,rail)=>{
-const p=window.strideJumpAttempt(h,speed,energy),required=(rail||1)+.15,ratio=required/p.height;
+const p=window.strideJumpAttempt(h,speed,energy,rail),required=(rail||1)+.15,ratio=required/p.height;
 const halfWindow=ratio<1?p.duration*(.5-Math.asin(Math.pow(ratio,1/p.shape))/Math.PI)*.72:.02;
 const ideal=speed*(p.cueDelay+p.reach*p.duration*.5),tolerance=Math.max(.35,speed*p.reach*Math.min(halfWindow,p.window));
 return{ideal,tolerance,possible:(rail||1)<=p.maxFenceHeight&&p.height>required,overLimit:(rail||1)>p.maxFenceHeight,profile:p};
