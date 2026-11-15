@@ -37,6 +37,8 @@ window.strideMarket.push({id:'odessa-rb',name:'Odessa RB',breed:'White Sport Hor
 window.strideBolterHorse=()=>({id:'bolter',name:'Bolter',breed:'Fantasy Speed Horse',sex:'Stallion',age:7,coat:'#291e1a',speed:9999,jump:75,maxJumpCm:100,stamina:200,temperament:200,gallopOnly:true,size:1,price:0,origin:'fantasy',generation:0});
 window.strideBuHorse=()=>({id:'bu-3air',name:'Bu 3air',breed:'Five-Legged Fantasy Horse',sex:'Stallion',age:6,coat:'#765039',speed:85,jump:75,maxJumpCm:100,stamina:95,temperament:90,size:1,legs:5,extraLeg:true,price:0,origin:'fantasy',generation:0});
 window.strideSkyHorse=()=>({id:'tripod',name:'Tripod',breed:'Fantasy Sky Horse',sex:'Stallion',age:8,coat:'#e8e2d3',speed:85,jump:100,maxJumpCm:3500,stamina:200,temperament:200,size:.48,legs:3,skyHorse:true,skyFast:false,price:0,origin:'fantasy',generation:0});
+window.strideSpeedGenes=h=>Array.isArray(h.speedGenes)&&h.speedGenes.length===2&&h.speedGenes.every(g=>g==='Quick'||g==='Steady')?h.speedGenes:[h.speed>=90?'Quick':'Steady',h.speed>=105?'Quick':'Steady'];
+for(const [id,name,sex,distance,speed,stamina,coat,price] of [['sand-sprint','Sand Sprint','Mare',200,115,81,'#b77c54',62000],['desert-mile','Desert Rhythm','Stallion',400,108,99,'#594034',84000],['oasis-runner','Oasis Runner','Mare',600,103,108,'#d9d4c9',98000],['night-marathon','Night Marathon','Stallion',800,99,115,'#322923',110000]])window.strideMarket.push({id,name,sex,breed:'Flat Racing Thoroughbred',age:6,preferredDistance:distance,speed,stamina,coat,price,temperament:92,jump:0,maxJumpCm:0,noJump:true,raceOnly:true,origin:'market',generation:0});
 window.strideStarter=()=>({id:'juniper',name:'Juniper',breed:'Dutch Warmblood',age:7,coat:'#89553d',speed:70,jump:61,maxJumpCm:60,stamina:85,temperament:90,sex:'Mare',price:0,generation:0,origin:'starter'});
 window.strideBreedHorse=(mare,stallion,index,random=Math.random)=>{
 const mareCm=strideJumpProfile(mare).maxCm,stallionCm=strideJumpProfile(stallion).maxCm;
@@ -48,6 +50,10 @@ const h={id:'bred-'+Date.now()+'-'+index,name:'Willow '+index,breed:'Sport Horse
 for(const k of ['speed','stamina','temperament'])h[k]=Math.max(1,Math.round((mare[k]+stallion[k])/2+random()*12-3));
 h.speed=Math.max(1,Math.round((mare.speed+stallion.speed)/2+random()*6));
 if(rareUpgrade)for(const k of ['speed','stamina','temperament'])h[k]=Math.max(70,h[k],bothLowQuality?Math.max(mare[k],stallion[k])+5:0);
+h.speedGenes=[strideSpeedGenes(mare)[random()<.5?0:1],strideSpeedGenes(stallion)[random()<.5?0:1]];
+h.speed+=h.speedGenes.filter(g=>g==='Quick').length*2;
+if(mare.preferredDistance||stallion.preferredDistance){const distances=[200,400,600,800],mean=((mare.preferredDistance||stallion.preferredDistance)+(stallion.preferredDistance||mare.preferredDistance))/2;h.preferredDistance=distances.reduce((a,b)=>Math.abs(b-mean)<Math.abs(a-mean)?b:a);}
+if(mare.raceOnly&&stallion.raceOnly){h.raceOnly=true;h.noJump=true;h.maxJumpCm=0;h.jump=0;return h;}
 h.jump=Math.round(40+maxJumpCm*.35);return h;
 };
 })();
