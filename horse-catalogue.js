@@ -39,6 +39,7 @@ window.strideBuHorse=()=>({id:'bu-3air',name:'Bu 3air',breed:'Five-Legged Fantas
 window.strideSkyHorse=()=>({id:'tripod',name:'Tripod',breed:'Fantasy Sky Horse',sex:'Stallion',age:8,coat:'#e8e2d3',speed:85,jump:100,maxJumpCm:3500,stamina:200,temperament:200,size:.48,legs:3,skyHorse:true,skyFast:false,price:0,origin:'fantasy',generation:0});
 window.strideSpeedGenes=h=>Array.isArray(h.speedGenes)&&h.speedGenes.length===2&&h.speedGenes.every(g=>g==='Quick'||g==='Steady')?h.speedGenes:[h.speed>=90?'Quick':'Steady',h.speed>=105?'Quick':'Steady'];
 for(const [id,name,sex,distance,speed,stamina,coat,price] of [['sand-sprint','Sand Sprint','Mare',200,115,81,'#b77c54',62000],['desert-mile','Desert Rhythm','Stallion',400,108,99,'#594034',84000],['oasis-runner','Oasis Runner','Mare',600,103,108,'#d9d4c9',98000],['night-marathon','Night Marathon','Stallion',800,99,115,'#322923',110000],["long-dune","Long Dune","Mare",1200,100,135,"#a66d46",140000],["silk-horizon","Silk Horizon","Stallion",1600,103,155,"#393230",185000],["silver-caravan","Silver Caravan","Mare",2000,101,177,"#cdc7bb",235000],["cedar-route","Cedar Route","Stallion",2400,99,198,"#704a39",280000],["moon-crossing","Moon Crossing","Mare",3000,97,217,"#473b38",335000],["endless-sands","Endless Sands","Stallion",3200,98,235,"#986848",400000]])window.strideMarket.push({id,name,sex,breed:'Flat Racing Thoroughbred',age:6,preferredDistance:distance,speed,stamina,coat,price:price*3,raceWinsRequired:distance>=3000?5:distance>=2000?3:distance>=1200?1:0,temperament:92,jump:0,maxJumpCm:0,noJump:true,raceOnly:true,origin:'market',generation:0});
+window.strideTurning=h=>Number.isFinite(h.turning)?Math.max(1,Math.round(h.turning)):h.discipline==='barrels'?Math.round(65+(h.acceleration||100)*.38):80;
 window.strideAcceleration=h=>Number.isFinite(h.acceleration)?Math.max(1,Math.round(h.acceleration)):Math.round(50+Math.min(140,h.speed||70)*.35);
 for(const [id,name,sex,maxJumpCm,speed,stamina,acceleration,price,coat] of [
 ['copper-compass','Copper Compass','Mare',90,81,93,87,78000,'#a25d41'],
@@ -68,6 +69,7 @@ for(const k of ['speed','stamina','temperament'])h[k]=Math.max(1,Math.round((mar
 h.speed=Math.max(1,Math.round((mare.speed+stallion.speed)/2+random()*6));
 if(rareUpgrade)for(const k of ['speed','stamina','temperament'])h[k]=Math.max(70,h[k],bothLowQuality?Math.max(mare[k],stallion[k])+5:0);
 h.acceleration=Math.round((strideAcceleration(mare)+strideAcceleration(stallion))/2+random()*4);
+h.turning=Math.round((strideTurning(mare)+strideTurning(stallion))/2+random()*4);
 h.speedGenes=[strideSpeedGenes(mare)[random()<.5?0:1],strideSpeedGenes(stallion)[random()<.5?0:1]];
 h.speed+=h.speedGenes.filter(g=>g==='Quick').length*2;
 if(mare.preferredDistance||stallion.preferredDistance){const distances=[100,150,200,300,400,500,600,700,800,900,1000,1200,1400,1600,1800,2000,2400,3000,3200],mean=((mare.preferredDistance||stallion.preferredDistance)+(stallion.preferredDistance||mare.preferredDistance))/2;h.preferredDistance=distances.reduce((a,b)=>Math.abs(b-mean)<Math.abs(a-mean)?b:a);}
