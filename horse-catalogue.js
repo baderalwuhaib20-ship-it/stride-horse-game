@@ -46,6 +46,16 @@ for(const [id,name,sex,maxJumpCm,speed,stamina,acceleration,price,coat] of [
 ['mesa-rose','Mesa Rose','Mare',120,89,100,102,310000,'#bf9672'],
 ['sterling-star','Sterling Star','Stallion',135,94,106,109,570000,'#b5b1a6']
 ])window.strideMarket.push({id,name,sex,maxJumpCm,speed,stamina,acceleration,price,coat,breed:'All-Round Sport Horse',age:7,jump:Math.round(48+maxJumpCm*.35),temperament:94,origin:'market',generation:0});
+for(const [id,name,sex,discipline,speed,stamina,acceleration,temperament,price,coat] of [
+['cinder-dash','Cinder Dash','Mare','barrels',87,82,112,84,115000,'#9f5236'],
+['copper-rein','Copper Rein','Stallion','barrels',92,90,125,90,205000,'#b77c56'],
+['dust-devil','Dust Devil','Mare','barrels',98,95,138,88,355000,'#dad4c3'],
+['midnight-pivot','Midnight Pivot','Stallion','barrels',101,101,151,96,560000,'#312a27'],
+['willow-cadence','Willow Cadence','Mare','dressage',72,94,82,105,105000,'#8a5945'],
+['sable-sonata','Sable Sonata','Stallion','dressage',75,100,88,115,190000,'#352d2d'],
+['pearl-passage','Pearl Passage','Mare','dressage',78,108,93,127,330000,'#dfd8c8'],
+['royal-tempo','Royal Tempo','Stallion','dressage',81,115,98,139,525000,'#6b4433']
+])window.strideMarket.push({id,name,sex,discipline,speed,stamina,acceleration,temperament,price,coat,breed:discipline==='barrels'?'Quarter Horse · Barrel specialist':'Warmblood · Dressage specialist',age:7,jump:61,maxJumpCm:60,origin:'market',generation:0});
 window.strideStarter=()=>({id:'juniper',name:'Juniper',breed:'Dutch Warmblood',age:7,coat:'#89553d',speed:70,jump:61,maxJumpCm:60,stamina:85,temperament:90,sex:'Mare',price:0,generation:0,origin:'starter'});
 window.strideBreedHorse=(mare,stallion,index,random=Math.random)=>{
 const mareCm=strideJumpProfile(mare).maxCm,stallionCm=strideJumpProfile(stallion).maxCm;
