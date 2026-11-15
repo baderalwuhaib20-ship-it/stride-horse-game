@@ -13,7 +13,7 @@ const stat=(h,key,fallback)=>Math.max(1,Number.isFinite(h[key])?h[key]:fallback)
 window.strideJumpProfile=h=>{
 let style=styles[h.id];if(!style){let seed=0;for(const c of String(h.id||h.name||'horse'))seed=(seed*31+c.charCodeAt(0))>>>0;const n=(seed%1000)/1000;style={label:n<.33?'Springy & compact':n<.66?'Balanced & flowing':'Long-striding & bold',height:(n-.5)*.25,air:(n-.5)*.14,reach:.92+n*.16,tuck:.9+n*.22,pitch:.8+n*.35,shape:.86+n*.3,cue:0,fold:.9+n*.18};}
 const jump=stat(h,'jump',75),speed=stat(h,'speed',75),temperament=stat(h,'temperament',75);
-const maxCm=h.noJump?0:h.id==='juniper'?60:Math.max(40,Number.isFinite(h.maxJumpCm)?h.maxJumpCm:style.maxCm||Math.round(50+jump*.85)),maxFenceHeight=maxCm/100;
+const maxCm=h.noJump?0:(h.id==='juniper'?60:Math.max(40,Number.isFinite(h.maxJumpCm)?h.maxJumpCm:style.maxCm||Math.round(50+jump*.85)))+Math.max(0,Math.floor(Number(h.devJumpBonus)||0)),maxFenceHeight=maxCm/100;
 return {...style,label:h.noJump?'Flatwork only · no jumping':style.label,maxCm,maxFenceHeight,height:Math.min(maxFenceHeight+.32,Math.max(1.05+jump*.010+style.height,maxFenceHeight+.18)),duration:.73+jump*.003+style.air,reach:style.reach+(speed-78)*.0012,cueDelay:clamp(.025+(100-temperament)*.002+style.cue,.025,.22),staminaCost:clamp(8-stat(h,'stamina',80)*.035+(style.height>0?1:0),4,9),window:.10+Math.min(temperament,200)*.001};
 };
 window.strideJumpAttempt=(h,speed,energy,rail)=>{
